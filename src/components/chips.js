@@ -14,11 +14,11 @@ export class Chip {
     const scale = 1
 
     const chip = scene.add.image(0, 0, image).setScale(scale);
-    chip.setInteractive();
+    chip.setInteractive({ useHandCursor: true });
     chip.setDataEnabled();
     chip.data.set("value", value);
     Phaser.Display.Align.In.Center(chip, scene.gameZone, 0, 0);
-    const text = scene.add.text(0, 0, value, textStyle);
+    const text = scene.add.text(0, 0, `$${value}`, { ...textStyle, fontSize: '28px' });
     text.setOrigin(0.5)
     Phaser.Display.Align.In.Center(text, chip);
     // text.setDepth(1);
@@ -29,6 +29,7 @@ export class Chip {
       "pointerdown",
       function () {
         callBack(value);
+        scene.tweens.add({ targets: [chip, text], scale: 0.92, yoyo: true, duration: 80 });
       },
       this
     );

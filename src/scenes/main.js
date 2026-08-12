@@ -1,6 +1,6 @@
 import { Button } from "../components/button";
 import { Chip } from "../components/chips";
-import { HIGH_SCORE_STORAGE, textStyle } from "../constants/constants";
+import { COLORS, textStyle } from "../constants/constants";
 import { ImageUtility } from "../utility/ImageUtility";
 
 
@@ -24,25 +24,38 @@ export default class MainScene extends Phaser.Scene {
   }
 
   create() {
-    if (this.money == 0) return this.gameOver();
+    if (this.money <= 0) return this.gameOver();
     this.scale = 1;
     this.width = this.sys.canvas.width
     this.height = this.sys.canvas.height
-    this.betArea = this.add.rectangle(this.width / 2, 250, 250, 100);
+    this.drawTable();
+    this.betArea = this.add.rectangle(this.width / 2, 330, 430, 150, COLORS.panel, 0.82);
     this.gameZone = this.add.zone(this.width * 0.5, this.height * 0.5, this.width, this.height);
-    this.betArea.setStrokeStyle(2, 0xa2a2a2);
+    this.betArea.setStrokeStyle(3, COLORS.gold, 0.85);
     this.setUpTitle()
     this.setUpText();
     this.setUpButtons()
   }
 
+  drawTable() {
+    const g = this.add.graphics();
+    g.fillGradientStyle(COLORS.feltLight, COLORS.feltLight, COLORS.felt, COLORS.felt, 1);
+    g.fillRect(0, 0, this.width, this.height);
+    g.lineStyle(5, COLORS.gold, 0.28);
+    g.strokeEllipse(this.width / 2, 570, 1500, 780);
+    g.lineStyle(2, 0xffffff, 0.09);
+    g.strokeEllipse(this.width / 2, 570, 1450, 730);
+    this.add.text(this.width / 2, 78, 'BLACKJACK', { ...textStyle, fontSize: '72px', color: '#f5c451', letterSpacing: 12 }).setOrigin(0.5);
+    this.add.text(this.width / 2, 145, 'ROYALE  •  PAYS 3 TO 2', { ...textStyle, fontSize: '21px', color: '#fff5d6', letterSpacing: 5 }).setOrigin(0.5).setAlpha(0.8);
+  }
+
   setUpTitle() {
-    this.textTitle = this.add.text(0, 20, 'Place your bet', textStyle);
+    this.textTitle = this.add.text(0, 20, 'PLACE YOUR BET', { ...textStyle, fontSize: '28px', color: '#fff5d6', letterSpacing: 3 });
     Phaser.Display.Align.In.Center(
       this.textTitle,
       this.betArea,
       0,
-      -(100)
+      -(120)
     );
   }
 
@@ -54,12 +67,14 @@ export default class MainScene extends Phaser.Scene {
   }
 
   updateMoneyText() {
-    this.moneyText.setText("Money: $" + this.money);
-    Phaser.Display.Align.In.TopRight(this.moneyText, this.gameZone, -20, -20);
+    this.moneyText.setText("BANK  $" + this.money);
+    this.moneyText.setStyle({ ...textStyle, fontSize: '30px', color: '#fff5d6', backgroundColor: '#062b21cc', padding: { x: 22, y: 14 } });
+    Phaser.Display.Align.In.TopRight(this.moneyText, this.gameZone, -40, -35);
   }
 
   updateBetText() {
-    this.betText.setText("Bet: $" + this.bet);
+    this.betText.setText("$" + this.bet);
+    this.betText.setStyle({ ...textStyle, fontSize: '54px', color: '#f5c451' });
     Phaser.Display.Align.In.Center(this.betText, this.betArea);
   }
 
@@ -87,10 +102,7 @@ export default class MainScene extends Phaser.Scene {
         }, this.effectDuration + 200);
       }
     })
-    if (this.bet === 0) {
-
-      this.dealButton.disableInteractive()
-    }
+    this.dealButton.disableInteractive()
 
     Phaser.Display.Align.In.BottomCenter(
       this.clearButton,
@@ -156,11 +168,10 @@ export default class MainScene extends Phaser.Scene {
 
 
   addChip(value) {
-    this.dealButton.setInteractive()
-
     if (this.bet + value <= this.money) {
       this.bet += value;
       this.updateBetText();
+      this.dealButton.setInteractive()
     }
   }
 
@@ -178,17 +189,19 @@ export default class MainScene extends Phaser.Scene {
     let resultText = this.add.text(
       0,
       0,
-      "Gave Over, you have no money anymore :(",
+      "GAME OVER",
       textStyle
     );
     resultText.setColor("#ffde3d");
+    const detailText = this.add.text(0, 0, 'Your bankroll is empty. Ready for another run?', { ...textStyle, fontSize: '26px' });
     const again = new Button(this, 0, 0, 'Restart', () => {
       this.money = 1000;
       this.bet = 0;
       this.scene.restart();
     })
     Phaser.Display.Align.In.Center(resultText, this.gameZone);
-    Phaser.Display.Align.In.Center(again, this.gameZone, 0, 100);
+    Phaser.Display.Align.In.Center(detailText, this.gameZone, 0, 60);
+    Phaser.Display.Align.In.Center(again, this.gameZone, 0, 150);
   }
 
 }

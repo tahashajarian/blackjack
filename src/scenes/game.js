@@ -1,7 +1,7 @@
 import { CARD_ATLAS_KEY, CARD_HEIGHT, CARD_WIDTH, CardFactory } from "../Factories/cardFactory";
 import { Deck } from "../models/deck";
 import { Hand } from "../models/hand";
-import { GUTTER_SIZE, textStyle } from "../constants/constants";
+import { COLORS, textStyle } from "../constants/constants";
 import { GameResult } from "../models/gameResult";
 import { Button } from "../components/button";
 
@@ -27,14 +27,27 @@ export default class GameScene extends Phaser.Scene {
     let width = new Number(this.scene.manager.game.config.width).valueOf();
     let height = new Number(this.scene.manager.game.config.height).valueOf();
     this.gameZone = this.add.zone(width * 0.5, height * 0.5, width, height);
+    this.handEnded = false;
+    this.drawTable(width, height);
     this.setUpMoneyText();
     this.setUpNewGame();
 
-    this.playerHandZone = this.add.zone(0, 0, CARD_WIDTH, CARD_HEIGHT);
-    Phaser.Display.Align.To.TopLeft(this.playerHandZone, this.playerScoreText, 0, GUTTER_SIZE);
-    this.dealerHandZone = this.add.zone(0, 0, CARD_WIDTH, CARD_HEIGHT);
-    Phaser.Display.Align.To.BottomLeft(this.dealerHandZone, this.dealerScoreText, 0, GUTTER_SIZE);
+    // Card rows use stable table coordinates instead of being chained to text
+    // bounds. This prevents scores, headings and cards from overlapping.
+    this.dealerHandZone = this.add.zone(width / 2 - 75, 330, CARD_WIDTH, CARD_HEIGHT);
+    this.playerHandZone = this.add.zone(width / 2 - 75, 745, CARD_WIDTH, CARD_HEIGHT);
     this.dealInitialCards();
+  }
+
+  drawTable(width, height) {
+    const g = this.add.graphics();
+    g.fillGradientStyle(COLORS.feltLight, COLORS.feltLight, COLORS.felt, COLORS.felt, 1);
+    g.fillRect(0, 0, width, height);
+    g.lineStyle(4, COLORS.gold, 0.24);
+    g.strokeRoundedRect(250, 130, width - 500, height - 260, 70);
+    this.add.text(width / 2, 54, 'BLACKJACK ROYALE', { ...textStyle, fontSize: '30px', color: '#f5c451', letterSpacing: 6 }).setOrigin(0.5);
+    this.add.text(width / 2, 135, 'DEALER', { ...textStyle, fontSize: '21px', color: '#fff5d6', letterSpacing: 4 }).setOrigin(0.5).setAlpha(0.75);
+    this.add.text(width / 2, height - 105, 'PLAYER', { ...textStyle, fontSize: '21px', color: '#fff5d6', letterSpacing: 4 }).setOrigin(0.5).setAlpha(0.75);
   }
 
   dealInitialCards() {
@@ -88,25 +101,25 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateMoneyText() {
-    this.moneyText.setText('Money: $' + this.betScene.money);
-    Phaser.Display.Align.In.TopRight(this.moneyText, this.gameZone, -20, -20);
+    this.moneyText.setText('BANK  $' + this.betScene.money);
+    this.moneyText.setStyle({ ...textStyle, fontSize: '28px', color: '#fff5d6', backgroundColor: '#062b21cc', padding: { x: 20, y: 12 } });
+    Phaser.Display.Align.In.TopRight(this.moneyText, this.gameZone, -35, -30);
   }
 
   updateBetText() {
-    this.betText.setText('Bet: $' + this.betScene.bet);
+    this.betText.setText('BET  $' + this.betScene.bet);
+    this.betText.setStyle({ ...textStyle, fontSize: '25px', color: '#f5c451' });
     Phaser.Display.Align.To.BottomLeft(this.betText, this.moneyText);
   }
 
   setUpDealerScoreText() {
-    this.dealerScoreText = this.add.text(0, 200, '', textStyle);
+    this.dealerScoreText = this.add.text(this.gameZone.x, 180, '', { ...textStyle, fontSize: '30px', color: '#f5c451' }).setOrigin(0.5);
     this.setDealerScoreText();
-    Phaser.Display.Align.In.TopCenter(this.dealerScoreText, this.gameZone, 0, -20);
   }
 
   setUpPlayerScoreText() {
-    this.playerScoreText = this.add.text(0, 300, '', textStyle);
+    this.playerScoreText = this.add.text(this.gameZone.x, this.gameZone.height - 155, '', { ...textStyle, fontSize: '30px', color: '#f5c451' }).setOrigin(0.5);
     this.setPlayerScoreText();
-    Phaser.Display.Align.In.BottomCenter(this.playerScoreText, this.gameZone, 0, -20);
   }
 
   setupButtons() {
@@ -122,7 +135,7 @@ export default class GameScene extends Phaser.Scene {
 
 
   handleDouble() {
-    if (this.betScene.bet * 2 <= this.betScene.money) {
+    if (!this.handEnded && this.playerHand.getCards().length === 2 && this.betScene.bet * 2 <= this.betScene.money) {
       this.betScene.bet *= 2
       this.updateBetText(this.betScene);
       this.handleHit()
@@ -135,7 +148,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   handleSurrunder() {
-    this.endHand(GameResult.SURRENDER)
+    if (!this.handEnded && this.playerHand.getCards().length === 2) this.endHand(GameResult.SURRENDER)
   }
 
 
@@ -150,7 +163,10 @@ export default class GameScene extends Phaser.Scene {
 
 
   handleHit() {
+    if (this.handEnded) return;
     this.handOutCard(this.playerHand, false);
+    this.DoubleButton.disableInteractive();
+    this.surrunderButton.disableInteractive();
     this.setPlayerScoreText();
     if (this.playerHand.getBlackjackScore() > 21) {
       this.endHand(GameResult.BUST);
@@ -158,6 +174,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   handleStay() {
+    if (this.handEnded) return;
+    this.disableActionButtons();
     this.handleFlipOver();
     setTimeout(() => {
       this.drawCardsUntil17();
@@ -230,33 +248,31 @@ export default class GameScene extends Phaser.Scene {
   }
 
   setDealerScoreText() {
-    setTimeout(() => {
-      this.dealerScoreText.setText(this.dealerHand.getBlackjackScore());
-      this.dealerScoreText.x += 20
-    }, 500);
+    this.dealerScoreText.setText(`SCORE  ${this.dealerHand.getBlackjackScore()}`);
 
   }
 
   setPlayerScoreText() {
-    setTimeout(() => {
+    this.playerScoreText.setText(`SCORE  ${this.playerHand.getBlackjackScore()}`);
+  }
 
-      this.playerScoreText.setText(this.playerHand.getBlackjackScore());
-      this.playerScoreText.x += 20
-    }, 500);
+  disableActionButtons() {
+    [this.hitButton, this.stayButton, this.DoubleButton, this.surrunderButton].forEach(button => button.disableInteractive());
   }
 
   endHand(result) {
+    if (this.handEnded) return;
+    this.handEnded = true;
+    this.disableActionButtons();
     setTimeout(() => {
-      this.hitButton.disableInteractive();
-      this.stayButton.disableInteractive();
       this.payout(result);
       let graphics = this.add.graphics({ fillStyle: { color: 0x000000, alpha: 0.9 } });
       let square = new Phaser.Geom.Rectangle(0, 0, new Number(this.scene.manager.game.config.width).valueOf(),
         new Number(this.scene.manager.game.config.height).valueOf());
       graphics.fillRectShape(square);
-      let resultText = this.add.text(0, 0, result, textStyle);
+      let resultText = this.add.text(0, 0, result, { ...textStyle, fontSize: '68px' });
       resultText.setColor("#ffde3d");
-      const again = new Button(this, 0, 0, 'Again', () => this.scene.start('MainScene'))
+      const again = new Button(this, 0, 0, 'Play again', () => this.scene.start('MainScene'))
       Phaser.Display.Align.In.Center(resultText, this.gameZone);
       Phaser.Display.Align.In.Center(again, this.gameZone, 0, 100);
     }, this.CARD_FLIP_TIME);
